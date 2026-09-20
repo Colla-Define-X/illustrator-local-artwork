@@ -5,6 +5,10 @@ All notable changes to this skill are documented here. Versions follow
 
 ## [Unreleased]
 
+### Added
+
+- Chinese README covering installation, usage, in-place layer behavior, deliverables, rollback, and validation.
+
 ## [0.2.0-rc.1] - 2026-09-20
 
 ### Changed
