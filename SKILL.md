@@ -1,49 +1,46 @@
 ---
 name: illustrator-local-artwork
-description: Generate reference-matched transparent artwork candidates for a mapped region in an Adobe Illustrator document, preview them, place only an explicitly approved candidate into a saved copy, and audit that unrelated content stayed unchanged. Use for local motif, ornament, object, or illustration replacement; do not use for text/date updates or full-layout generation.
+description: Generate and automatically select reference-matched transparent artwork, replace a mapped Illustrator region on an aicreate-prefixed duplicate layer, hide the original layer, save the same AI file in place, and return only the AI and final preview. Use for local motif, ornament, object, or illustration replacement; do not use for text/date updates or full-layout generation.
 metadata:
-  version: "0.1.0"
+  version: "0.2.0-rc.1"
 ---
 
 # Illustrator Local Artwork
 
-Use the built-in image generation tool for new raster candidates and the configured Illustrator MCP for document inspection, placement, previews, and readback. Keep generation, approval, placement, and audit as separate states.
+Use the built-in image generator for raster candidates and the configured Illustrator MCP for inspection, placement, saving, and preview export. Modify the supplied AI in place only when the user has authorized that behavior. Preserve rollback inside the document by retaining the original layer as hidden.
 
 ## Workflow
 
-1. Confirm the source AI, output directory, target region, and creative brief. Never overwrite the source AI.
-2. Record the source SHA-256, byte length, modification time, document color space, target layer/group, target bounds, existing artwork indices, and protected-layer inventory.
-3. Export or capture a local preview of the target page. Treat it as a style/layout reference, not an edit target.
-4. Create a job manifest using [references/schema.md](references/schema.md). For a new template or ambiguous target, stop after mapping suggestions; do not modify Illustrator.
-5. Generate three candidates by default. Require one isolated subject, no text, no watermark, and true alpha transparency. Save every kept candidate outside the image generator's default directory.
-6. Run `scripts/validate_job.py --stage candidates`. Judge transparency from the PNG alpha channel, not the previewer's black/gray transparency canvas. Alpha maximum `254` is valid for watercolor-like semi-transparent edges; require transparent corners and sufficient subject opacity instead of requiring a `255` pixel. A genuinely failed alpha check may be repaired once with a dedicated background-removal tool. If it still fails, mark the candidate `rejected`.
-7. Build target-area mockups with `scripts/build_preview_jsx.py` against a disposable AI copy. Export the preview, close that copy without saving, and present the valid candidates. Stop before final Illustrator mutation until the user explicitly selects one candidate.
-8. Set only the selected candidate to `approved`, set `approved_candidate_id`, and run `validate_job.py --stage place`. The placement builder must refuse any unapproved job.
-9. Copy the source to `output_ai`, open the saved copy, generate trusted JSX with `scripts/build_placement_jsx.py`, and call Illustrator MCP `run` with the absolute `target_path`.
-10. Read back the document inventory, run `scripts/audit_artwork.py`, export an after-preview, and recompute the source hash.
+1. Confirm the source AI, internal work directory, target layer/group, target bounds, and creative brief. The source AI is also the final AI.
+2. Inspect the target once. For a new template or ambiguous target, stop after mapping suggestions instead of guessing.
+3. Create an internal schema-v2 job using [references/schema.md](references/schema.md). Keep the job, prompts, candidates, JSX, and diagnostics under `.aicreate/<job-id>/`; do not present them as deliverables.
+4. Generate three candidates by default. Require one isolated subject, no text or watermark, true alpha transparency, and adequate resolution.
+5. Run `scripts/validate_job.py --stage candidates`. Reject technical failures, then visually rank the remaining candidates against the brief and reference. Set exactly one candidate to `selected`; do not ask the user to choose unless they explicitly request review.
+6. Set the job status to `selected`, run `validate_job.py --stage place`, then generate trusted JSX with `scripts/build_placement_jsx.py`.
+7. Open the source AI itself and call Illustrator MCP `run` with that exact absolute path as `target_path`. The JSX duplicates the target layer, gives the duplicate an `aicreate-` name, replaces artwork only inside the duplicate, hides the original layer, embeds the asset, saves in place, runs fast checks, and exports the final preview.
+8. Return only the updated AI and final preview PNG. Do not attach or enumerate internal jobs, candidates, logs, JSX, or diagnostic files.
 
-## Placement rules
+## Layer and placement rules
 
+- Name the duplicate `aicreate-<original-layer-name>`; if occupied, append `-02`, `-03`, and so on.
+- Keep the duplicate visible and unlocked. Hide the original layer only after the new artwork has been placed successfully.
 - Default to `contain`; preserve aspect ratio and center the asset inside the mapped bounds.
 - Permit `cover` only when the target parent is an existing clipping group and `allow_crop` is true.
-- Insert next to the primary artwork item so the original container and stacking context are preserved. Remove the mapped old raster items only after the new file has been placed successfully.
-- Embed the approved asset unless the user explicitly requests a linked file.
-- Do not alter text, dates, artboard geometry, or unrelated groups.
+- Place next to the mapped primary artwork, then remove only the mapped old raster items from the duplicate layer.
+- Embed the selected asset unless the user explicitly requests a linked file.
+- Do not alter text, dates, artboard geometry, or layers other than the original target layer and its duplicate.
 
-## Safety and recovery
+## Fast verification and recovery
 
-- Treat configured protected layers such as `说明` and `刀线` as immutable. Any fingerprint difference fails the run.
-- Always pass the open saved copy's absolute path as MCP `run.target_path`.
-- On `outcome_unknown`, do not retry. Call `get_state`, inspect the document, record the partial result, then use `recover_connection(acknowledge=true)` only after verification.
-- Approval applies to one candidate in one job. A prompt change, regenerated asset, changed target, or changed source hash invalidates that approval.
-- Keep rejected candidates and the reason for rejection in the test log; do not present them as valid choices.
+- Treat success as: exact document-path match, visible `aicreate-*` layer, hidden original layer, replacement inside the target for `contain`, embedded asset, successful in-place save, and readable final preview.
+- Do not build full document inventories, hash the complete AI, fingerprint every protected layer, or produce an audit report unless the user explicitly requests strict auditing.
+- On `outcome_unknown`, do not retry. Inspect Illustrator state first. If an `aicreate-*` layer already exists or the original layer is hidden, treat the operation as potentially applied and resolve from the actual document state.
+- If all candidates fail or fast verification fails, keep internal diagnostics and report only a concise failure explanation.
 
 ## Commands
 
 ```powershell
 python scripts/validate_job.py --job job.json --stage candidates
-python scripts/build_preview_jsx.py --job job.json --candidate-id A --preview-ai preview-working.ai --preview-png preview-a.png --output preview-a.jsx
 python scripts/validate_job.py --job job.json --stage place
-python scripts/build_placement_jsx.py --job job.json --output place-approved.jsx
-python scripts/audit_artwork.py --job job.json --baseline baseline-inventory.json --actual actual-inventory.json --report audit-report.json
+python scripts/build_placement_jsx.py --job job.json --preview-png final-preview.png --output place-selected.jsx
 ```
