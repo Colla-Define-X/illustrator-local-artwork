@@ -1,0 +1,4 @@
+interface:
+  display_name: "Illustrator 局部图案"
+  short_description: "生成、预览、确认并安全替换 Illustrator 局部图案"
+  default_prompt: "Use $illustrator-local-artwork to generate three reference-matched transparent artwork candidates, preview them, and place only the candidate I approve into a saved Illustrator copy."

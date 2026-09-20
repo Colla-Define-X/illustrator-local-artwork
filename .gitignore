@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+*.log
+.DS_Store
+Thumbs.db
+.venv/
+venv/
+
+# Generated job artifacts
+job.json
+*-working.ai
+preview-*.png
+preview-*.jsx
+place-*.jsx
+*-inventory.json
+audit-report.json
