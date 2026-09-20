@@ -10,8 +10,8 @@ from pathlib import Path
 from PIL import Image
 
 
-VALID_JOB_STATES = {"draft", "candidates_ready", "approved", "placed", "audited", "failed"}
-VALID_CANDIDATE_STATES = {"generated", "approved", "rejected"}
+VALID_JOB_STATES = {"draft", "candidates_ready", "selected", "placed", "verified", "failed"}
+VALID_CANDIDATE_STATES = {"generated", "selected", "rejected"}
 
 
 def sha256(path: Path) -> str:
@@ -25,13 +25,17 @@ def sha256(path: Path) -> str:
 def inspect_png(path: Path) -> dict:
     with Image.open(path) as image:
         image.load()
-        bands = image.getbands()
-        alpha = image.getchannel("A") if "A" in bands else None
+        alpha = image.getchannel("A") if "A" in image.getbands() else None
         extrema = alpha.getextrema() if alpha else None
         corners = []
         if alpha:
-            w, h = image.size
-            corners = [alpha.getpixel((0, 0)), alpha.getpixel((w - 1, 0)), alpha.getpixel((0, h - 1)), alpha.getpixel((w - 1, h - 1))]
+            width, height = image.size
+            corners = [
+                alpha.getpixel((0, 0)),
+                alpha.getpixel((width - 1, 0)),
+                alpha.getpixel((0, height - 1)),
+                alpha.getpixel((width - 1, height - 1)),
+            ]
         return {
             "width": image.width,
             "height": image.height,
@@ -40,37 +44,33 @@ def inspect_png(path: Path) -> dict:
             "corner_alpha": corners,
             "transparent_background": bool(extrema and extrema[0] == 0 and extrema[1] > 0 and all(value == 0 for value in corners)),
             "subject_alpha_sufficient": bool(extrema and extrema[1] >= 240),
-            "has_fully_opaque_pixels": bool(extrema and extrema[1] == 255),
         }
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--job", required=True)
-    parser.add_argument("--stage", required=True, choices=("candidates", "place", "audit"))
+    parser.add_argument("--stage", required=True, choices=("candidates", "place"))
     args = parser.parse_args()
-    job_path = Path(args.job).resolve()
-    job = json.loads(job_path.read_text(encoding="utf-8"))
+    job = json.loads(Path(args.job).resolve().read_text(encoding="utf-8"))
     errors, warnings, checks = [], [], []
 
-    if job.get("schema_version") != 1:
-        errors.append("schema_version_must_be_1")
+    if job.get("schema_version") != 2:
+        errors.append("schema_version_must_be_2")
     if job.get("status") not in VALID_JOB_STATES:
         errors.append("invalid_job_status")
 
     source = Path(job.get("source_ai", ""))
-    output = Path(job.get("output_ai", ""))
     if not source.is_absolute() or not source.is_file() or source.suffix.lower() != ".ai":
         errors.append("source_ai_must_be_existing_absolute_ai")
-    elif job.get("source_sha256") and sha256(source) != str(job["source_sha256"]).upper():
-        errors.append("source_sha256_mismatch")
-    if args.stage in {"place", "audit"}:
-        if not output.is_absolute() or output.suffix.lower() != ".ai":
-            errors.append("output_ai_must_be_absolute_ai")
-        elif source.resolve() == output.resolve():
-            errors.append("output_ai_must_not_equal_source_ai")
+
+    work_dir = Path(job.get("work_dir", ""))
+    if not work_dir.is_absolute() or ".aicreate" not in {part.lower() for part in work_dir.parts}:
+        errors.append("work_dir_must_be_absolute_aicreate_directory")
 
     target = job.get("target", {})
+    if not isinstance(target.get("layer"), str) or not target.get("layer", "").strip():
+        errors.append("target_layer_required")
     bounds = target.get("target_bounds")
     if not isinstance(bounds, list) or len(bounds) != 4 or not (bounds[2] > bounds[0] and bounds[1] > bounds[3]):
         errors.append("invalid_target_bounds")
@@ -92,50 +92,52 @@ def main() -> None:
     if not ids or len(ids) != len(set(ids)) or any(not value for value in ids):
         errors.append("candidate_ids_must_be_unique_and_nonempty")
 
-    valid_candidates = []
-    approved = []
+    valid_candidates, selected = [], []
     for item in candidates:
         state = item.get("status")
+        candidate_id = item.get("id")
         if state not in VALID_CANDIDATE_STATES:
-            errors.append(f"candidate_{item.get('id')}_invalid_status")
+            errors.append(f"candidate_{candidate_id}_invalid_status")
             continue
         if state == "rejected":
             if not item.get("reason"):
-                warnings.append(f"candidate_{item.get('id')}_rejected_without_reason")
+                warnings.append(f"candidate_{candidate_id}_rejected_without_reason")
             continue
         path = Path(item.get("path", ""))
         if not path.is_absolute() or not path.is_file():
-            errors.append(f"candidate_{item.get('id')}_file_missing")
+            errors.append(f"candidate_{candidate_id}_file_missing")
             continue
+        if work_dir.is_absolute() and work_dir not in path.parents:
+            errors.append(f"candidate_{candidate_id}_must_be_inside_work_dir")
         if path.suffix.lower() != ".png":
-            errors.append(f"candidate_{item.get('id')}_must_be_png")
+            errors.append(f"candidate_{candidate_id}_must_be_png")
             continue
         try:
             info = inspect_png(path)
         except Exception as exc:
-            errors.append(f"candidate_{item.get('id')}_image_unreadable:{exc}")
+            errors.append(f"candidate_{candidate_id}_image_unreadable:{exc}")
             continue
-        info.update({"id": item.get("id"), "path": str(path), "sha256": sha256(path)})
+        info.update({"id": candidate_id, "path": str(path), "sha256": sha256(path)})
         checks.append(info)
         if not info["transparent_background"]:
-            errors.append(f"candidate_{item.get('id')}_transparent_background_failed")
+            errors.append(f"candidate_{candidate_id}_transparent_background_failed")
         if not info["subject_alpha_sufficient"]:
-            errors.append(f"candidate_{item.get('id')}_subject_too_transparent")
+            errors.append(f"candidate_{candidate_id}_subject_too_transparent")
         if info["width"] < min_width or info["height"] < min_height:
-            errors.append(f"candidate_{item.get('id')}_resolution_below_minimum")
+            errors.append(f"candidate_{candidate_id}_resolution_below_minimum")
         if info["transparent_background"] and info["subject_alpha_sufficient"] and info["width"] >= min_width and info["height"] >= min_height:
             valid_candidates.append(item)
-        if state == "approved":
-            approved.append(item)
+        if state == "selected":
+            selected.append(item)
 
     if args.stage == "candidates" and not 2 <= len(valid_candidates) <= 3:
         errors.append("candidates_stage_requires_two_or_three_valid_candidates")
-    if args.stage in {"place", "audit"}:
-        selected = job.get("approved_candidate_id")
-        if job.get("status") not in {"approved", "placed", "audited"}:
-            errors.append("placement_requires_approved_job_status")
-        if len(approved) != 1 or not selected or str(approved[0].get("id")) != str(selected):
-            errors.append("exactly_one_matching_approved_candidate_required")
+    if args.stage == "place":
+        selected_id = job.get("selected_candidate_id")
+        if job.get("status") != "selected":
+            errors.append("placement_requires_selected_job_status")
+        if len(selected) != 1 or not selected_id or str(selected[0].get("id")) != str(selected_id):
+            errors.append("exactly_one_matching_selected_candidate_required")
 
     result = {"ok": not errors, "stage": args.stage, "errors": errors, "warnings": warnings, "candidate_checks": checks}
     print(json.dumps(result, ensure_ascii=False, indent=2))
