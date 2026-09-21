@@ -2,9 +2,9 @@
 
 一个用于 Adobe Illustrator 局部图案替换的 Codex Skill。
 
-它会根据 Illustrator 文档中的现有风格一次生成一张透明背景图，默认匹配原图色调，并在原 AI 文件中创建空的同级 `aicreate-*` 图层，仅放入替换对象。原图层保持可见，只隐藏被替换的旧对象和较早的生成版本，因此可以随时在 Illustrator 中恢复任意版本。
+它会根据 Illustrator 文档中的现有风格一次生成一张透明背景图，默认匹配原图色调，并在原 AI 文件中创建空的同级 `aicreate-*` 图层，仅放入替换对象。原图层保持可见，只隐藏被替换的旧对象和同一页面或目标范围的较早版本，因此可以随时在 Illustrator 中恢复任意版本。
 
-> 当前版本：`v0.2.0-rc.3`。这是候选发布版，建议先在可恢复的 Illustrator 文件上完成实际测试。该版本会原地保存传入的 AI 文件。
+> 当前版本：`v0.2.0-rc.4`。这是候选发布版，建议先在可恢复的 Illustrator 文件上完成实际测试。该版本会原地保存传入的 AI 文件。
 
 ## 主要能力
 
@@ -13,8 +13,8 @@
 - 默认从被替换图案提取色调，对生成图执行受限色调匹配，同时保护浅色低饱和材质。
 - 用户明确要求保持外形、纹样或更换色调时，用户要求优先于默认规则。
 - 定位指定对象及其所在图层，在同层级创建空的 `aicreate-*` 图层，仅放置替换图案，不复制整层内容。
-- 新图层命名为 `aicreate-<原图层名>`；重名时自动追加 `-02`、`-03`。
-- 隐藏原图层但保留其完整内容，支持通过图层可见性快速回退。
+- 新图层按目标范围命名为 `aicreate-<原图层名>-<scope_id>`；同一范围重名时自动追加 `-02`、`-03`。
+- 原图层保持可见，只隐藏被替换对象和同一目标范围的旧生成层。
 - 默认嵌入最终素材，避免外链图片丢失。
 - 使用快速校验替代全量文档审计，减少大型 AI 文件的处理时间。
 - 最终只向用户交付更新后的 AI 文件和替换后预览图。
@@ -40,7 +40,7 @@
         ↓
 只把替换图案放入新图层，并隐藏原对象
         ↓
-隐藏原图层、嵌入素材并原地保存
+隐藏原对象和同范围旧版本、嵌入素材并原地保存
         ↓
 快速校验并导出最终预览
 ```
@@ -67,7 +67,7 @@ python -m pip install -r "$env:USERPROFILE\.codex\skills\illustrator-local-artwo
 如需使用候选发布版：
 
 ```powershell
-git -C "$env:USERPROFILE\.codex\skills\illustrator-local-artwork" checkout v0.2.0-rc.2
+git -C "$env:USERPROFILE\.codex\skills\illustrator-local-artwork" checkout v0.2.0-rc.4
 ```
 
 ## 使用方式
@@ -106,18 +106,19 @@ git -C "$env:USERPROFILE\.codex\skills\illustrator-local-artwork" checkout v0.2.
 假设原目标图层名为 `印刷`，第一次执行后的结构为：
 
 ```text
-✓ aicreate-印刷    新版本，可见
-  印刷             旧版本，不可见
+✓ aicreate-印刷-p19    第 19 页新版本，可见
+✓ aicreate-印刷-p26    第 26 页新版本，可见
+✓ 印刷                 原图层，可见；旧对象单独隐藏
 ```
 
 用户不满意并再次生成时，新层会依次命名，旧生成层自动隐藏：
 
 ```text
-aicreate-印刷-02
-aicreate-印刷-03
+aicreate-印刷-p19-02
+aicreate-印刷-p19-03
 ```
 
-需要恢复旧版本时，在 Illustrator 图层面板中隐藏 `aicreate-*` 图层，并重新显示原图层即可。
+不同页面或替换区域使用独立的 `scope_id`，互不隐藏。需要恢复旧版本时，在 Illustrator 图层面板中切换同一范围的 `aicreate-*` 图层，并重新显示对应的原对象即可。
 
 ## 快速校验
 
@@ -125,7 +126,7 @@ aicreate-印刷-03
 
 - Illustrator 当前打开的是指定 AI 文件。
 - `aicreate-*` 新图层存在且可见。
-- 原目标图层已经隐藏。
+- 原目标图层保持可见，且仅映射的旧对象被隐藏。
 - `contain` 模式下新素材位于目标区域内。
 - 最终素材已执行嵌入。
 - AI 文件原地保存成功。
@@ -155,5 +156,6 @@ python path\to\skill-creator\scripts\quick_validate.py .
 - `v0.2.0-rc.1`：原地保存、自动选图、`aicreate-*` 可回退图层、快速校验。
 - `v0.2.0-rc.2`：单图生成、用户要求优先、原图色调匹配、递增版本图层。
 - `v0.2.0-rc.3`：不再复制整个印刷层，只创建同级替换层并隐藏被替换对象。
+- `v0.2.0-rc.4`：按页面或目标范围隔离生成图层，只隐藏同范围旧版本。
 
 仓库地址：<https://github.com/Colla-Define-X/illustrator-local-artwork>

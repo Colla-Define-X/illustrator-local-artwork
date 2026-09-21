@@ -1,8 +1,8 @@
 ---
 name: illustrator-local-artwork
-description: Generate one reference-matched transparent artwork at a time, locate the exact Illustrator object and its containing layer, place the replacement on a versioned sibling aicreate layer without copying the source layer, hide only the replaced object and older generated layers, save in place, and return only the AI and final preview. Use for local motif, ornament, object, or illustration replacement; do not use for text/date updates or full-layout generation.
+description: Generate one reference-matched transparent artwork at a time, locate the exact Illustrator object and its containing layer, place the replacement on a page- or target-scoped sibling aicreate layer without copying the source layer, hide only the replaced object and same-scope older generated layers, save in place, and return only the AI and final preview. Use for local motif, ornament, object, or illustration replacement; do not use for text/date updates or full-layout generation.
 metadata:
-  version: "0.2.0-rc.3"
+  version: "0.2.0-rc.4"
 ---
 
 # Illustrator Local Artwork
@@ -22,7 +22,7 @@ If the user asks to preserve shape, motif, composition, or another element, trea
 
 ## Workflow
 
-1. Confirm the source AI, internal work directory, target layer/group, target bounds, and creative brief. The source AI is also the final AI.
+1. Confirm the source AI, internal work directory, target layer/group, target bounds, stable target `scope_id`, and creative brief. Use a page identifier such as `p19` when the document is page-based. The source AI is also the final AI.
 2. Inspect the target once and export the original target region as the tone reference. For an ambiguous target, stop after mapping suggestions instead of guessing.
 3. Create a schema-v3 job using [references/schema.md](references/schema.md). Keep the job, prompt, generated asset, tone-matched asset, JSX, and diagnostics under `.aicreate/<job-id>/`.
 4. Run `scripts/build_generation_prompt.py`, then generate one transparent candidate. Vary form only where the user allows it. Require one isolated subject, no text or watermark, true alpha transparency, and adequate resolution.
@@ -34,9 +34,10 @@ If the user asks to preserve shape, motif, composition, or another element, trea
 
 ## Layer and placement rules
 
-- First version: `aicreate-<original-layer-name>`; later versions: `-02`, `-03`, and so on.
+- First version: `aicreate-<original-layer-name>-<scope_id>`; later versions in that same scope append `-02`, `-03`, and so on.
+- Treat each page or independent replacement region as a separate scope. Hide only older layers in the exact same scope; never hide generated layers for another page or target. Legacy unscoped `aicreate-<original-layer-name>` layers remain untouched.
 - Never duplicate the source layer or its unrelated contents. Create an empty sibling layer at the same layer hierarchy level and place only the replacement asset in it.
-- Keep the source layer visible. Hide only the explicitly mapped old objects and earlier `aicreate-*` version layers; never delete them.
+- Keep the source layer visible. Hide only the explicitly mapped old objects and earlier `aicreate-*` layers in the same scope; never delete them.
 - Default to `contain`; permit `cover` only with an existing clipping group and `allow_crop: true`.
 - Preserve mapped old raster items in their source layer with `hidden: true`, and embed the effective asset unless the user requests linking.
 - Do not alter text, dates, artboard geometry, or unrelated layers.

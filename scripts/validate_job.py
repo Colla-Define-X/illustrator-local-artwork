@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -88,6 +89,9 @@ def main() -> None:
         errors.append("target_layer_required")
     if target.get("placement_layer_scope") != "sibling_of_source_layer":
         errors.append("placement_layer_scope_must_be_sibling_of_source_layer")
+    scope_id = target.get("scope_id")
+    if not isinstance(scope_id, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,31}", scope_id):
+        errors.append("target_scope_id_must_be_safe_identifier")
     bounds = target.get("target_bounds")
     if not isinstance(bounds, list) or len(bounds) != 4 or not (bounds[2] > bounds[0] and bounds[1] > bounds[3]):
         errors.append("invalid_target_bounds")

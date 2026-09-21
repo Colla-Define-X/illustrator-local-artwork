@@ -44,6 +44,7 @@ class ScriptTests(unittest.TestCase):
             "target": {
                 "layer": "Print",
                 "placement_layer_scope": "sibling_of_source_layer",
+                "scope_id": "p19",
                 "group_index": 0,
                 "target_bounds": [0, 100, 100, 0],
                 "raster_indices": [0],
@@ -159,7 +160,11 @@ class ScriptTests(unittest.TestCase):
         code = jsx.read_text(encoding="utf-8-sig")
         self.assertIn(str(matched).replace("\\", "\\\\"), code)
         self.assertIn("hideOlderVersions", code)
-        self.assertIn("layer!==current", code)
+        self.assertIn("hideOlderVersions(sourceLayer.name,job.scope_id,newLayer)", code)
+        self.assertIn("versionBase(original,scopeId)", code)
+        self.assertIn("isScopedVersion(name,base)", code)
+        self.assertIn("aicreate-'+original+'-'+scopeId", code)
+        self.assertNotIn("name===base||name.indexOf(base+'-')===0", code)
         self.assertIn("doc.layers.add()", code)
         self.assertIn("createSiblingLayer", code)
         self.assertNotIn("copyLayer", code)
@@ -170,6 +175,19 @@ class ScriptTests(unittest.TestCase):
         self.assertNotIn("rasters[idx].remove()", code)
         self.assertIn("doc.save()", code)
         self.assertNotIn("output_ai", code)
+
+    def test_scope_id_is_required_and_rejects_unsafe_layer_fragments(self) -> None:
+        del self.job["target"]["scope_id"]
+        self.write_job()
+        result = self.run_script("validate_job.py", "--job", str(self.job_path), "--stage", "candidate")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("target_scope_id_must_be_safe_identifier", result.stdout)
+
+        self.job["target"]["scope_id"] = "p19/../../other"
+        self.write_job()
+        result = self.run_script("validate_job.py", "--job", str(self.job_path), "--stage", "candidate")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("target_scope_id_must_be_safe_identifier", result.stdout)
 
 
 if __name__ == "__main__":

@@ -5,6 +5,14 @@ All notable changes to this skill are documented here. Versions follow
 
 ## [Unreleased]
 
+## [0.2.0-rc.4] - 2026-09-21
+
+### Fixed
+
+- Scope generated layers by page or independent replacement region.
+- Hide only older versions with the exact same `scope_id`; preserve other pages and legacy unscoped layers.
+- Require and validate a safe stable target scope identifier in schema-v3 jobs.
+
 ## [0.2.0-rc.3] - 2026-09-21
 
 ### Fixed
@@ -45,7 +53,8 @@ All notable changes to this skill are documented here. Versions follow
 - Candidate validation, preview generation, approved placement, and post-placement audit scripts.
 - Job manifest schema and Codex UI metadata.
 
-[Unreleased]: https://github.com/Colla-Define-X/illustrator-local-artwork/compare/v0.2.0-rc.3...HEAD
+[Unreleased]: https://github.com/Colla-Define-X/illustrator-local-artwork/compare/v0.2.0-rc.4...HEAD
+[0.2.0-rc.4]: https://github.com/Colla-Define-X/illustrator-local-artwork/releases/tag/v0.2.0-rc.4
 [0.2.0-rc.3]: https://github.com/Colla-Define-X/illustrator-local-artwork/releases/tag/v0.2.0-rc.3
 [0.2.0-rc.2]: https://github.com/Colla-Define-X/illustrator-local-artwork/releases/tag/v0.2.0-rc.2
 [0.2.0-rc.1]: https://github.com/Colla-Define-X/illustrator-local-artwork/releases/tag/v0.2.0-rc.1

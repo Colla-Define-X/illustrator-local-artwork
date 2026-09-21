@@ -37,6 +37,7 @@ def main() -> None:
         "asset_path": str(asset),
         "preview_png": str(preview_png),
         "layer": target["layer"],
+        "scope_id": target["scope_id"],
         "group_index": int(target["group_index"]),
         "bounds": target["target_bounds"],
         "raster_indices": sorted(set(int(value) for value in target["raster_indices"]), reverse=True),
@@ -53,8 +54,10 @@ function norm(v){{return String(v).replace(/\\\\/g,'/').toLowerCase();}}
 if(norm(doc.fullName.fsName)!==norm(job.source_ai))throw new Error('target_document_path_mismatch');
 function findLayer(name){{for(var i=0;i<doc.layers.length;i++)if(doc.layers[i].name===name)return doc.layers[i];throw new Error('layer_not_found:'+name);}}
 function layerNameExists(name){{for(var i=0;i<doc.layers.length;i++)if(doc.layers[i].name===name)return true;return false;}}
-function nextLayerName(original){{var base='aicreate-'+original;if(!layerNameExists(base))return base;for(var n=2;n<1000;n++){{var suffix=n<10?'0'+n:String(n),candidate=base+'-'+suffix;if(!layerNameExists(candidate))return candidate;}}throw new Error('aicreate_layer_name_exhausted');}}
-function hideOlderVersions(original,current){{var base='aicreate-'+original;for(var i=0;i<doc.layers.length;i++){{var layer=doc.layers[i],name=String(layer.name);if(layer!==current&&(name===base||name.indexOf(base+'-')===0))layer.visible=false;}}}}
+function versionBase(original,scopeId){{return 'aicreate-'+original+'-'+scopeId;}}
+function nextLayerName(original,scopeId){{var base=versionBase(original,scopeId);if(!layerNameExists(base))return base;for(var n=2;n<1000;n++){{var suffix=n<10?'0'+n:String(n),candidate=base+'-'+suffix;if(!layerNameExists(candidate))return candidate;}}throw new Error('aicreate_layer_name_exhausted');}}
+function isScopedVersion(name,base){{if(name===base)return true;if(name.indexOf(base+'-')!==0)return false;var suffix=name.substring(base.length+1);return /^\\d+$/.test(suffix);}}
+function hideOlderVersions(original,scopeId,current){{var base=versionBase(original,scopeId);for(var i=0;i<doc.layers.length;i++){{var layer=doc.layers[i],name=String(layer.name);if(layer!==current&&isScopedVersion(name,base))layer.visible=false;}}}}
 function createSiblingLayer(source,name){{var target=doc.layers.add();target.name=name;target.move(source,ElementPlacement.PLACEBEFORE);target.locked=false;target.visible=true;return target;}}
 function topGroups(layer){{var out=[];for(var i=0;i<layer.groupItems.length;i++)if(layer.groupItems[i].parent===layer)out.push(layer.groupItems[i]);return out;}}
 function collectRasters(container,out){{for(var i=0;i<container.pageItems.length;i++){{var item=container.pageItems[i];if(item.typename==='RasterItem'||item.typename==='PlacedItem')out.push(item);if(item.typename==='GroupItem')collectRasters(item,out);}}}}
@@ -64,14 +67,14 @@ var groups=topGroups(sourceLayer),group=groups[job.group_index];if(!group)throw 
 var rasters=[];collectRasters(group,rasters);var anchor=rasters[job.primary_raster_index];if(!anchor)throw new Error('primary_raster_not_found');
 if(job.fit==='cover'&&(!job.allow_crop||anchor.parent.typename!=='GroupItem'||!anchor.parent.clipped))throw new Error('cover_requires_existing_clipping_group');
 var file=new File(job.asset_path);if(!file.exists)throw new Error('selected_asset_missing');
-var newLayer=createSiblingLayer(sourceLayer,nextLayerName(sourceLayer.name));doc.activeLayer=newLayer;
+var newLayer=createSiblingLayer(sourceLayer,nextLayerName(sourceLayer.name,job.scope_id));doc.activeLayer=newLayer;
 var placed=doc.placedItems.add();placed.file=file;placed.move(newLayer,ElementPlacement.PLACEATBEGINNING);
 var b=job.bounds,w=b[2]-b[0],h=b[1]-b[3],sx=w/placed.width,sy=h/placed.height,scale=job.fit==='cover'?Math.max(sx,sy):Math.min(sx,sy);
 placed.width*=scale;placed.height*=scale;placed.left=b[0]+(w-placed.width)/2;placed.top=b[1]-(h-placed.height)/2;
 var placedBounds=placed.geometricBounds;if(job.fit==='contain'&&!contained(b,placedBounds,0.75))throw new Error('replacement_outside_target');
 for(var r=0;r<job.raster_indices.length;r++){{var idx=job.raster_indices[r];if(idx<0||idx>=rasters.length)throw new Error('raster_index_invalid:'+idx);rasters[idx].hidden=true;}}
 if(job.embed)placed.embed();
-hideOlderVersions(sourceLayer.name,newLayer);sourceLayer.visible=true;newLayer.visible=true;
+hideOlderVersions(sourceLayer.name,job.scope_id,newLayer);sourceLayer.visible=true;newLayer.visible=true;
 if(!sourceLayer.visible||!newLayer.visible)throw new Error('layer_visibility_verification_failed');
 var preview=new File(job.preview_png),options=new ImageCaptureOptions();options.resolution=120;options.antiAliasing=true;options.transparency=false;doc.imageCapture(preview,group.geometricBounds,options);
 if(!preview.exists||preview.length<=0)throw new Error('final_preview_export_failed');
