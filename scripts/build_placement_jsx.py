@@ -13,17 +13,16 @@ def main() -> None:
     parser.add_argument("--output", required=True)
     args = parser.parse_args()
     job = json.loads(Path(args.job).resolve().read_text(encoding="utf-8"))
-    if job.get("schema_version") != 2:
-        raise SystemExit("schema_version_must_be_2")
+    if job.get("schema_version") != 3:
+        raise SystemExit("schema_version_must_be_3")
     if job.get("status") != "selected":
         raise SystemExit("job_status_must_be_selected")
-    candidates = [item for item in job.get("candidates", []) if item.get("status") == "selected"]
-    selected = job.get("selected_candidate_id")
-    if len(candidates) != 1 or str(candidates[0].get("id")) != str(selected):
-        raise SystemExit("exactly_one_matching_selected_candidate_required")
+    candidate = job.get("candidate", {})
+    if candidate.get("status") != "selected":
+        raise SystemExit("candidate_must_be_selected")
 
     source = Path(job["source_ai"]).resolve()
-    asset = Path(candidates[0]["path"]).resolve()
+    asset = Path(candidate.get("effective_asset_path", "")).resolve()
     preview_png = Path(args.preview_png).resolve()
     if not source.is_file() or source.suffix.lower() != ".ai":
         raise SystemExit("source_ai_missing")
@@ -45,7 +44,7 @@ def main() -> None:
         "fit": target.get("fit", "contain"),
         "allow_crop": bool(target.get("allow_crop", False)),
         "embed": bool(target.get("embed", True)),
-        "candidate_id": selected,
+        "candidate_id": candidate.get("id", "candidate"),
     }
     code = f'''(function(){{
 try{{
@@ -55,6 +54,7 @@ if(norm(doc.fullName.fsName)!==norm(job.source_ai))throw new Error('target_docum
 function findLayer(name){{for(var i=0;i<doc.layers.length;i++)if(doc.layers[i].name===name)return doc.layers[i];throw new Error('layer_not_found:'+name);}}
 function layerNameExists(name){{for(var i=0;i<doc.layers.length;i++)if(doc.layers[i].name===name)return true;return false;}}
 function nextLayerName(original){{var base='aicreate-'+original;if(!layerNameExists(base))return base;for(var n=2;n<1000;n++){{var suffix=n<10?'0'+n:String(n),candidate=base+'-'+suffix;if(!layerNameExists(candidate))return candidate;}}throw new Error('aicreate_layer_name_exhausted');}}
+function hideOlderVersions(original,current){{var base='aicreate-'+original;for(var i=0;i<doc.layers.length;i++){{var layer=doc.layers[i],name=String(layer.name);if(layer!==current&&(name===base||name.indexOf(base+'-')===0))layer.visible=false;}}}}
 function topGroups(layer){{var out=[];for(var i=0;i<layer.groupItems.length;i++)if(layer.groupItems[i].parent===layer)out.push(layer.groupItems[i]);return out;}}
 function collectRasters(container,out){{for(var i=0;i<container.pageItems.length;i++){{var item=container.pageItems[i];if(item.typename==='RasterItem'||item.typename==='PlacedItem')out.push(item);if(item.typename==='GroupItem')collectRasters(item,out);}}}}
 function contained(outer,inner,t){{return inner[0]>=outer[0]-t&&inner[2]<=outer[2]+t&&inner[1]<=outer[1]+t&&inner[3]>=outer[3]-t;}}
@@ -69,7 +69,7 @@ placed.width*=scale;placed.height*=scale;placed.left=b[0]+(w-placed.width)/2;pla
 var placedBounds=placed.geometricBounds;if(job.fit==='contain'&&!contained(b,placedBounds,0.75))throw new Error('replacement_outside_target');
 for(var r=0;r<job.raster_indices.length;r++){{var idx=job.raster_indices[r];if(idx<0||idx>=rasters.length)throw new Error('raster_index_invalid:'+idx);rasters[idx].remove();}}
 if(job.embed)placed.embed();
-sourceLayer.visible=false;newLayer.visible=true;
+hideOlderVersions(sourceLayer.name,newLayer);sourceLayer.visible=false;newLayer.visible=true;
 if(sourceLayer.visible||!newLayer.visible)throw new Error('layer_visibility_verification_failed');
 var preview=new File(job.preview_png),options=new ImageCaptureOptions();options.resolution=120;options.antiAliasing=true;options.transparency=false;doc.imageCapture(preview,group.geometricBounds,options);
 if(!preview.exists||preview.length<=0)throw new Error('final_preview_export_failed');
@@ -79,7 +79,7 @@ return 'VERIFIED candidate_id='+job.candidate_id+' layer='+newLayer.name+' previ
 }})();'''
     output = Path(args.output).resolve()
     output.write_text(code, encoding="utf-8-sig")
-    print(json.dumps({"output": str(output), "candidate_id": selected, "source_ai": str(source), "preview_png": str(preview_png)}, ensure_ascii=False))
+    print(json.dumps({"output": str(output), "candidate_id": candidate.get("id", "candidate"), "source_ai": str(source), "preview_png": str(preview_png)}, ensure_ascii=False))
 
 
 if __name__ == "__main__":
