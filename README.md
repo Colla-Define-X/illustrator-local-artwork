@@ -2,14 +2,16 @@
 
 一个用于 Adobe Illustrator 局部图案替换的 Codex Skill。
 
-它会根据 Illustrator 文档中的现有风格生成透明背景候选图，自动选择最合适的候选，在原 AI 文件内复制目标图层并完成替换。新图层统一使用 `aicreate-` 前缀，原图层会被隐藏而不是删除，因此可以随时在 Illustrator 中恢复旧版本。
+它会根据 Illustrator 文档中的现有风格一次生成一张透明背景图，默认匹配原图色调，在原 AI 文件内复制目标图层并完成替换。新图层统一使用 `aicreate-` 前缀，原图层和较早生成版本会被隐藏而不是删除，因此可以随时在 Illustrator 中恢复任意版本。
 
-> 当前版本：`v0.2.0-rc.1`。这是候选发布版，建议先在可恢复的 Illustrator 文件上完成实际测试。该版本会原地保存传入的 AI 文件。
+> 当前版本：`v0.2.0-rc.2`。这是候选发布版，建议先在可恢复的 Illustrator 文件上完成实际测试。该版本会原地保存传入的 AI 文件。
 
 ## 主要能力
 
 - 根据参考画面和创意要求生成透明 PNG 图案。
-- 默认生成三个候选，并自动选择技术有效且视觉匹配度最高的版本。
+- 每轮只生成一张图；用户不满意时再生成下一版。
+- 默认从被替换图案提取色调，对生成图执行受限色调匹配，同时保护浅色低饱和材质。
+- 用户明确要求保持外形、纹样或更换色调时，用户要求优先于默认规则。
 - 复制整个目标图层，在副本中替换指定 RasterItem 或 PlacedItem。
 - 新图层命名为 `aicreate-<原图层名>`；重名时自动追加 `-02`、`-03`。
 - 隐藏原图层但保留其完整内容，支持通过图层可见性快速回退。
@@ -30,9 +32,9 @@
 ```text
 读取原 AI 和目标区域
         ↓
-生成并检查三个透明候选
+生成并检查一张透明图片
         ↓
-自动选择最佳候选
+匹配原图色调（用户指定新色调时跳过）
         ↓
 复制目标图层并命名为 aicreate-*
         ↓
@@ -43,7 +45,7 @@
 快速校验并导出最终预览
 ```
 
-任务配置、候选图、临时 JSX 和诊断信息保存在项目的 `.aicreate/<job-id>/` 目录中，不作为对话交付物展示。
+任务配置、生成图、调色中间图、临时 JSX 和诊断信息保存在项目的 `.aicreate/<job-id>/` 目录中，不作为对话交付物展示。
 
 ## 安装
 
@@ -65,7 +67,7 @@ python -m pip install -r "$env:USERPROFILE\.codex\skills\illustrator-local-artwo
 如需使用候选发布版：
 
 ```powershell
-git -C "$env:USERPROFILE\.codex\skills\illustrator-local-artwork" checkout v0.2.0-rc.1
+git -C "$env:USERPROFILE\.codex\skills\illustrator-local-artwork" checkout v0.2.0-rc.2
 ```
 
 ## 使用方式
@@ -94,7 +96,7 @@ git -C "$env:USERPROFILE\.codex\skills\illustrator-local-artwork" checkout v0.2.
 
 以下内容仅保留在内部工作目录，不会作为交付物返回：
 
-- 候选图片和候选评分。
+- 生成图片、调色中间图和色调评分。
 - Job JSON 与提示词。
 - 生成的 JSX。
 - 操作日志和失败诊断。
@@ -108,7 +110,7 @@ git -C "$env:USERPROFILE\.codex\skills\illustrator-local-artwork" checkout v0.2.
   印刷             旧版本，不可见
 ```
 
-再次基于同一原图层执行时，新层会依次命名为：
+用户不满意并再次生成时，新层会依次命名，旧生成层自动隐藏：
 
 ```text
 aicreate-印刷-02
@@ -151,5 +153,6 @@ python path\to\skill-creator\scripts\quick_validate.py .
 
 - `v0.1.0`：AI 副本输出、人工候选确认、完整审计。
 - `v0.2.0-rc.1`：原地保存、自动选图、`aicreate-*` 可回退图层、快速校验。
+- `v0.2.0-rc.2`：单图生成、用户要求优先、原图色调匹配、递增版本图层。
 
 仓库地址：<https://github.com/Colla-Define-X/illustrator-local-artwork>

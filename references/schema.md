@@ -1,14 +1,15 @@
-# Job schema v2
+# Job schema v3
 
-The internal job coordinates candidate validation, automatic selection, and in-place placement. It is not a user-facing deliverable.
+Schema v3 represents one generation attempt and one candidate. Schema-v2 jobs must not be resumed.
 
 ```json
 {
-  "schema_version": 2,
-  "job_id": "day-03-green-vessel",
-  "status": "candidates_ready",
+  "schema_version": 3,
+  "job_id": "day-03-green-vessel-attempt-1",
+  "status": "candidate_ready",
+  "generation_attempt": 1,
   "source_ai": "C:\\absolute\\source.ai",
-  "work_dir": "C:\\project\\.aicreate\\day-03-green-vessel",
+  "work_dir": "C:\\project\\.aicreate\\day-03-green-vessel-attempt-1",
   "target": {
     "layer": "印刷",
     "group_index": 17,
@@ -20,28 +21,38 @@ The internal job coordinates candidate validation, automatic selection, and in-p
     "embed": true
   },
   "brief": {
-    "subject": "green cloisonne lidded vessel",
+    "subject": "decorated porcelain vessel",
     "style": "quiet hand-painted editorial illustration",
-    "palette": ["jade", "celadon", "ivory", "muted gold"],
     "constraints": ["one object", "transparent background", "no text"],
-    "avoid": ["watermark", "frame", "scenery"]
+    "preserve": [],
+    "variation": ["silhouette", "motif arrangement"]
   },
-  "references": [{"path": "C:\\absolute\\reference.png", "role": "layout_and_style"}],
-  "candidates": [
-    {"id": "A", "path": "C:\\project\\.aicreate\\day-03-green-vessel\\candidate-a.png", "status": "generated"}
-  ],
-  "selected_candidate_id": null,
+  "tone_policy": {
+    "mode": "match_source",
+    "reference_path": "C:\\project\\.aicreate\\day-03-green-vessel-attempt-1\\tone-reference.png",
+    "target_tone": null
+  },
+  "candidate": {
+    "id": "candidate",
+    "path": "C:\\project\\.aicreate\\day-03-green-vessel-attempt-1\\candidate.png",
+    "status": "generated",
+    "tone_score_before": null,
+    "tone_score_after": null,
+    "effective_asset_path": null
+  },
   "requirements": {"min_width_px": 1000, "min_height_px": 1000}
 }
 ```
 
-## States
+For a user-requested tone change, use `tone_policy.mode: user_override`, set `target_tone`, and omit `reference_path`. User-preserved elements belong in `brief.preserve` and override default variation.
+
+## States and retry limit
 
 - `draft`: target and brief are being prepared.
-- `candidates_ready`: two or three candidates passed technical validation.
-- `selected`: exactly one candidate has status `selected` and matches `selected_candidate_id`.
+- `candidate_ready`: the single generated candidate is ready for technical validation.
+- `selected`: the candidate is technically valid and has an effective asset path.
 - `placed`: Illustrator returned a definite placement and save success.
-- `verified`: the in-script fast checks and final preview export passed.
-- `failed`: candidate validation, placement, saving, or fast verification failed.
+- `verified`: fast checks and final preview export passed.
+- `failed`: generation attempt 2 or a later placement step failed.
 
-Candidate status is `generated`, `selected`, or `rejected`. Rejected candidates retain a short internal reason. Candidate choice is based on technical validity plus visual fit to the brief and reference.
+`generation_attempt` is `1` or `2`. Attempt 2 is allowed only after a technical failure. Aesthetic dissatisfaction starts a new job and a new `aicreate-*` layer version rather than incrementing this retry counter.

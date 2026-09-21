@@ -1,4 +1,4 @@
 interface:
   display_name: "Illustrator 局部图案"
-  short_description: "自动选图，在原 AI 内用可回退图层替换局部图案"
-  default_prompt: "Use $illustrator-local-artwork to generate and automatically select a reference-matched transparent artwork, place it on an aicreate-prefixed duplicate layer, hide the original layer, save the same AI in place, and return only the AI and final preview."
+  short_description: "单图生成、色调匹配与可回退 Illustrator 图层替换"
+  default_prompt: "Use $illustrator-local-artwork to generate one tone-matched transparent artwork, preserve my explicit constraints, place it on the next aicreate layer version, and return only the updated AI and final preview."

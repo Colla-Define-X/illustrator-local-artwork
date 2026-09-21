@@ -5,9 +5,19 @@ All notable changes to this skill are documented here. Versions follow
 
 ## [Unreleased]
 
+## [0.2.0-rc.2] - 2026-09-21
+
 ### Added
 
-- Chinese README covering installation, usage, in-place layer behavior, deliverables, rollback, and validation.
+- Single-candidate schema v3 with one technical retry at most.
+- Deterministic generation-prompt priority for explicit user constraints.
+- Lightweight source-tone profiling and restrained automatic tone matching with preserved alpha.
+- Iterative layer versioning that hides older `aicreate-*` layers without deleting them.
+
+### Changed
+
+- Generate one result per user-visible iteration instead of three candidates.
+- Let explicit user tone or preservation requirements override source-tone and variation defaults.
 
 ## [0.2.0-rc.1] - 2026-09-20
 
@@ -27,6 +37,7 @@ All notable changes to this skill are documented here. Versions follow
 - Candidate validation, preview generation, approved placement, and post-placement audit scripts.
 - Job manifest schema and Codex UI metadata.
 
-[Unreleased]: https://github.com/Colla-Define-X/illustrator-local-artwork/compare/v0.2.0-rc.1...HEAD
+[Unreleased]: https://github.com/Colla-Define-X/illustrator-local-artwork/compare/v0.2.0-rc.2...HEAD
+[0.2.0-rc.2]: https://github.com/Colla-Define-X/illustrator-local-artwork/releases/tag/v0.2.0-rc.2
 [0.2.0-rc.1]: https://github.com/Colla-Define-X/illustrator-local-artwork/releases/tag/v0.2.0-rc.1
 [0.1.0]: https://github.com/Colla-Define-X/illustrator-local-artwork/releases/tag/v0.1.0
