@@ -55,22 +55,24 @@ function findLayer(name){{for(var i=0;i<doc.layers.length;i++)if(doc.layers[i].n
 function layerNameExists(name){{for(var i=0;i<doc.layers.length;i++)if(doc.layers[i].name===name)return true;return false;}}
 function nextLayerName(original){{var base='aicreate-'+original;if(!layerNameExists(base))return base;for(var n=2;n<1000;n++){{var suffix=n<10?'0'+n:String(n),candidate=base+'-'+suffix;if(!layerNameExists(candidate))return candidate;}}throw new Error('aicreate_layer_name_exhausted');}}
 function hideOlderVersions(original,current){{var base='aicreate-'+original;for(var i=0;i<doc.layers.length;i++){{var layer=doc.layers[i],name=String(layer.name);if(layer!==current&&(name===base||name.indexOf(base+'-')===0))layer.visible=false;}}}}
+function createSiblingLayer(source,name){{var target=doc.layers.add();target.name=name;target.move(source,ElementPlacement.PLACEBEFORE);target.locked=false;target.visible=true;return target;}}
 function topGroups(layer){{var out=[];for(var i=0;i<layer.groupItems.length;i++)if(layer.groupItems[i].parent===layer)out.push(layer.groupItems[i]);return out;}}
 function collectRasters(container,out){{for(var i=0;i<container.pageItems.length;i++){{var item=container.pageItems[i];if(item.typename==='RasterItem'||item.typename==='PlacedItem')out.push(item);if(item.typename==='GroupItem')collectRasters(item,out);}}}}
 function contained(outer,inner,t){{return inner[0]>=outer[0]-t&&inner[2]<=outer[2]+t&&inner[1]<=outer[1]+t&&inner[3]>=outer[3]-t;}}
-var sourceLayer=findLayer(job.layer),newLayer=sourceLayer.duplicate();newLayer.name=nextLayerName(sourceLayer.name);newLayer.locked=false;newLayer.visible=true;
-var groups=topGroups(newLayer),group=groups[job.group_index];if(!group)throw new Error('group_not_found:'+job.group_index);
+var sourceLayer=findLayer(job.layer);sourceLayer.locked=false;sourceLayer.visible=true;
+var groups=topGroups(sourceLayer),group=groups[job.group_index];if(!group)throw new Error('group_not_found:'+job.group_index);
 var rasters=[];collectRasters(group,rasters);var anchor=rasters[job.primary_raster_index];if(!anchor)throw new Error('primary_raster_not_found');
 if(job.fit==='cover'&&(!job.allow_crop||anchor.parent.typename!=='GroupItem'||!anchor.parent.clipped))throw new Error('cover_requires_existing_clipping_group');
 var file=new File(job.asset_path);if(!file.exists)throw new Error('selected_asset_missing');
-var placed=doc.placedItems.add();placed.file=file;
+var newLayer=createSiblingLayer(sourceLayer,nextLayerName(sourceLayer.name));doc.activeLayer=newLayer;
+var placed=doc.placedItems.add();placed.file=file;placed.move(newLayer,ElementPlacement.PLACEATBEGINNING);
 var b=job.bounds,w=b[2]-b[0],h=b[1]-b[3],sx=w/placed.width,sy=h/placed.height,scale=job.fit==='cover'?Math.max(sx,sy):Math.min(sx,sy);
-placed.width*=scale;placed.height*=scale;placed.left=b[0]+(w-placed.width)/2;placed.top=b[1]-(h-placed.height)/2;placed.move(anchor,ElementPlacement.PLACEBEFORE);
+placed.width*=scale;placed.height*=scale;placed.left=b[0]+(w-placed.width)/2;placed.top=b[1]-(h-placed.height)/2;
 var placedBounds=placed.geometricBounds;if(job.fit==='contain'&&!contained(b,placedBounds,0.75))throw new Error('replacement_outside_target');
-for(var r=0;r<job.raster_indices.length;r++){{var idx=job.raster_indices[r];if(idx<0||idx>=rasters.length)throw new Error('raster_index_invalid:'+idx);rasters[idx].remove();}}
+for(var r=0;r<job.raster_indices.length;r++){{var idx=job.raster_indices[r];if(idx<0||idx>=rasters.length)throw new Error('raster_index_invalid:'+idx);rasters[idx].hidden=true;}}
 if(job.embed)placed.embed();
-hideOlderVersions(sourceLayer.name,newLayer);sourceLayer.visible=false;newLayer.visible=true;
-if(sourceLayer.visible||!newLayer.visible)throw new Error('layer_visibility_verification_failed');
+hideOlderVersions(sourceLayer.name,newLayer);sourceLayer.visible=true;newLayer.visible=true;
+if(!sourceLayer.visible||!newLayer.visible)throw new Error('layer_visibility_verification_failed');
 var preview=new File(job.preview_png),options=new ImageCaptureOptions();options.resolution=120;options.antiAliasing=true;options.transparency=false;doc.imageCapture(preview,group.geometricBounds,options);
 if(!preview.exists||preview.length<=0)throw new Error('final_preview_export_failed');
 doc.save();

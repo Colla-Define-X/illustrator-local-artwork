@@ -1,8 +1,8 @@
 ---
 name: illustrator-local-artwork
-description: Generate one reference-matched transparent artwork at a time, preserve user-requested invariants, match the source tone by default, place it on a versioned aicreate layer, hide older versions, save the same Illustrator file in place, and return only the AI and final preview. Use for local motif, ornament, object, or illustration replacement; do not use for text/date updates or full-layout generation.
+description: Generate one reference-matched transparent artwork at a time, locate the exact Illustrator object and its containing layer, place the replacement on a versioned sibling aicreate layer without copying the source layer, hide only the replaced object and older generated layers, save in place, and return only the AI and final preview. Use for local motif, ornament, object, or illustration replacement; do not use for text/date updates or full-layout generation.
 metadata:
-  version: "0.2.0-rc.2"
+  version: "0.2.0-rc.3"
 ---
 
 # Illustrator Local Artwork
@@ -29,21 +29,21 @@ If the user asks to preserve shape, motif, composition, or another element, trea
 5. Run `scripts/validate_job.py --stage candidate`. On a technical failure, regenerate once with `generation_attempt: 2`; if that also fails, stop without modifying Illustrator. Do not regenerate automatically for aesthetic dissatisfaction.
 6. For `match_source`, run `scripts/match_tone.py`. It preserves alpha and structure, protects bright low-saturation material, and uses the adjusted image only when similarity improves. For `user_override`, keep the user-directed candidate unchanged.
 7. Set the candidate and job to `selected`, record `effective_asset_path`, and run `validate_job.py --stage place` followed by `build_placement_jsx.py`.
-8. Open the source AI itself and call Illustrator MCP `run` with that exact absolute path as `target_path`. The JSX duplicates the original layer, creates the next `aicreate-*` version, replaces artwork only in the duplicate, hides the original and older generated versions, embeds the asset, saves in place, and exports the final preview.
+8. Open the source AI itself and call Illustrator MCP `run` with that exact absolute path as `target_path`. The JSX locates the mapped objects in their existing layer, creates the next sibling `aicreate-*` layer, places only the replacement there, hides only the mapped old objects and older generated layers, saves in place, and exports the final preview.
 9. Return only the updated AI and final preview PNG. If the user dislikes the result, create one new candidate in a new job and preserve the earlier generated layer as hidden.
 
 ## Layer and placement rules
 
 - First version: `aicreate-<original-layer-name>`; later versions: `-02`, `-03`, and so on.
-- Always duplicate the original named layer, never a prior `aicreate-*` layer.
-- Keep only the newest generated layer visible. Hide, but never delete, the original and earlier generated layers.
+- Never duplicate the source layer or its unrelated contents. Create an empty sibling layer at the same layer hierarchy level and place only the replacement asset in it.
+- Keep the source layer visible. Hide only the explicitly mapped old objects and earlier `aicreate-*` version layers; never delete them.
 - Default to `contain`; permit `cover` only with an existing clipping group and `allow_crop: true`.
-- Remove only mapped old raster items from the new duplicate and embed the effective asset unless the user requests linking.
+- Preserve mapped old raster items in their source layer with `hidden: true`, and embed the effective asset unless the user requests linking.
 - Do not alter text, dates, artboard geometry, or unrelated layers.
 
 ## Fast verification and recovery
 
-- Success requires an exact document-path match, one visible newest `aicreate-*` layer, hidden original and older versions, valid placement, successful save, and a readable final preview.
+- Success requires an exact document-path match, a visible source layer, one visible newest `aicreate-*` sibling layer, hidden mapped old objects and older generated layers, valid placement, successful save, and a readable final preview.
 - Do not build full inventories or expose jobs, intermediate images, tone profiles, scores, JSX, logs, or diagnostics to the user.
 - On `outcome_unknown`, do not retry. Inspect Illustrator state first to avoid duplicate version layers.
 

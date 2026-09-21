@@ -86,6 +86,8 @@ def main() -> None:
     target = job.get("target", {})
     if not isinstance(target.get("layer"), str) or not target.get("layer", "").strip():
         errors.append("target_layer_required")
+    if target.get("placement_layer_scope") != "sibling_of_source_layer":
+        errors.append("placement_layer_scope_must_be_sibling_of_source_layer")
     bounds = target.get("target_bounds")
     if not isinstance(bounds, list) or len(bounds) != 4 or not (bounds[2] > bounds[0] and bounds[1] > bounds[3]):
         errors.append("invalid_target_bounds")

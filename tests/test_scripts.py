@@ -43,6 +43,7 @@ class ScriptTests(unittest.TestCase):
             "work_dir": str(self.work),
             "target": {
                 "layer": "Print",
+                "placement_layer_scope": "sibling_of_source_layer",
                 "group_index": 0,
                 "target_bounds": [0, 100, 100, 0],
                 "raster_indices": [0],
@@ -139,7 +140,7 @@ class ScriptTests(unittest.TestCase):
         self.assertNotIn("Variation is allowed only in: exact vessel silhouette", result.stdout)
         self.assertIn("background ornament", result.stdout)
 
-    def test_placement_uses_effective_asset_and_hides_older_versions(self) -> None:
+    def test_placement_uses_sibling_layer_and_hides_only_target_objects(self) -> None:
         matched = self.work / "candidate-tone-matched.png"
         make_subject(matched, (100, 120, 200), neutral_center=True)
         self.job["status"] = "selected"
@@ -159,7 +160,14 @@ class ScriptTests(unittest.TestCase):
         self.assertIn(str(matched).replace("\\", "\\\\"), code)
         self.assertIn("hideOlderVersions", code)
         self.assertIn("layer!==current", code)
-        self.assertIn("sourceLayer.visible=false", code)
+        self.assertIn("doc.layers.add()", code)
+        self.assertIn("createSiblingLayer", code)
+        self.assertNotIn("copyLayer", code)
+        self.assertIn("doc.activeLayer=newLayer", code)
+        self.assertIn("placed.move(newLayer,ElementPlacement.PLACEATBEGINNING)", code)
+        self.assertIn("rasters[idx].hidden=true", code)
+        self.assertIn("sourceLayer.visible=true", code)
+        self.assertNotIn("rasters[idx].remove()", code)
         self.assertIn("doc.save()", code)
         self.assertNotIn("output_ai", code)
 

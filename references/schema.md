@@ -12,6 +12,7 @@ Schema v3 represents one generation attempt and one candidate. Schema-v2 jobs mu
   "work_dir": "C:\\project\\.aicreate\\day-03-green-vessel-attempt-1",
   "target": {
     "layer": "印刷",
+    "placement_layer_scope": "sibling_of_source_layer",
     "group_index": 17,
     "target_bounds": [-3295.25, 2103.56, -3126.53, 1939.16],
     "raster_indices": [0, 1],
@@ -56,3 +57,5 @@ For a user-requested tone change, use `tone_policy.mode: user_override`, set `ta
 - `failed`: generation attempt 2 or a later placement step failed.
 
 `generation_attempt` is `1` or `2`. Attempt 2 is allowed only after a technical failure. Aesthetic dissatisfaction starts a new job and a new `aicreate-*` layer version rather than incrementing this retry counter.
+
+`target.layer` names the layer containing the original mapped objects. Placement creates an empty sibling layer named with the `aicreate-` prefix; it must not copy the source layer. `raster_indices` identifies only the original objects to hide after successful placement.

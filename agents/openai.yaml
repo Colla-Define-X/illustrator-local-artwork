@@ -1,4 +1,4 @@
 interface:
   display_name: "Illustrator 局部图案"
-  short_description: "单图生成、色调匹配与可回退 Illustrator 图层替换"
-  default_prompt: "Use $illustrator-local-artwork to generate one tone-matched transparent artwork, preserve my explicit constraints, place it on the next aicreate layer version, and return only the updated AI and final preview."
+  short_description: "精准定位对象并在同级 aicreate 图层完成局部替换"
+  default_prompt: "Use $illustrator-local-artwork to locate the exact target object, generate one tone-matched replacement, place only it on a sibling aicreate layer, hide the old object, and return the updated AI and final preview."

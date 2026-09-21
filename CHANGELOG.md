@@ -5,6 +5,14 @@ All notable changes to this skill are documented here. Versions follow
 
 ## [Unreleased]
 
+## [0.2.0-rc.3] - 2026-09-21
+
+### Fixed
+
+- Create an empty `aicreate-*` sibling layer for the replacement instead of copying the complete source layer.
+- Keep the source layer visible and hide only the mapped original artwork objects.
+- Preserve earlier generated layers as hidden rollback versions.
+
 ## [0.2.0-rc.2] - 2026-09-21
 
 ### Added
@@ -37,7 +45,8 @@ All notable changes to this skill are documented here. Versions follow
 - Candidate validation, preview generation, approved placement, and post-placement audit scripts.
 - Job manifest schema and Codex UI metadata.
 
-[Unreleased]: https://github.com/Colla-Define-X/illustrator-local-artwork/compare/v0.2.0-rc.2...HEAD
+[Unreleased]: https://github.com/Colla-Define-X/illustrator-local-artwork/compare/v0.2.0-rc.3...HEAD
+[0.2.0-rc.3]: https://github.com/Colla-Define-X/illustrator-local-artwork/releases/tag/v0.2.0-rc.3
 [0.2.0-rc.2]: https://github.com/Colla-Define-X/illustrator-local-artwork/releases/tag/v0.2.0-rc.2
 [0.2.0-rc.1]: https://github.com/Colla-Define-X/illustrator-local-artwork/releases/tag/v0.2.0-rc.1
 [0.1.0]: https://github.com/Colla-Define-X/illustrator-local-artwork/releases/tag/v0.1.0
