@@ -5,12 +5,15 @@ import argparse
 import json
 from pathlib import Path
 
+from runtime_support import utf8_output
+
 
 def main() -> None:
+    utf8_output()
     parser = argparse.ArgumentParser()
     parser.add_argument("--job", required=True)
     args = parser.parse_args()
-    job = json.loads(Path(args.job).resolve().read_text(encoding="utf-8"))
+    job = json.loads(Path(args.job).resolve().read_text(encoding="utf-8-sig"))
     if job.get("schema_version") != 3:
         raise SystemExit("schema_version_must_be_3")
     brief = job.get("brief", {})

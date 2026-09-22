@@ -25,13 +25,14 @@ def make_subject(path: Path, color: tuple[int, int, int], neutral_center: bool =
 class ScriptTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()
-        self.root = Path(self.temp.name)
+        self.root = Path(self.temp.name) / "中文 空格 (test) % # '"
+        self.root.mkdir()
         self.work = self.root / ".aicreate" / "job-1"
         self.work.mkdir(parents=True)
         self.source = self.root / "source.ai"
         self.source.write_bytes(b"illustrator-test-placeholder")
         self.reference = self.work / "tone-reference.png"
-        self.candidate = self.work / "candidate.png"
+        self.candidate = self.work / "candidate%20.png"
         make_subject(self.reference, (92, 118, 205), neutral_center=True)
         make_subject(self.candidate, (205, 105, 58), neutral_center=True)
         self.job = {
@@ -76,12 +77,13 @@ class ScriptTests(unittest.TestCase):
         self.temp.cleanup()
 
     def write_job(self) -> None:
-        self.job_path.write_text(json.dumps(self.job), encoding="utf-8")
+        self.job_path.write_text(json.dumps(self.job, ensure_ascii=False), encoding="utf-8-sig")
 
     def run_script(self, script: str, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             [sys.executable, str(ROOT / "scripts" / script), *args],
             text=True,
+            encoding="utf-8",
             capture_output=True,
             check=False,
         )
@@ -94,6 +96,23 @@ class ScriptTests(unittest.TestCase):
         result = self.run_script("validate_job.py", "--job", str(self.job_path), "--stage", "candidate")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("generation_attempt_must_be_1_or_2", result.stdout)
+
+    def test_ambiguous_percent_source_fails_before_placement(self) -> None:
+        source = self.root / "source%20.ai"
+        source.write_bytes(b"placeholder")
+        self.job["source_ai"] = str(source)
+        self.job["status"] = self.job["candidate"]["status"] = "selected"
+        self.job["candidate"]["effective_asset_path"] = str(self.candidate)
+        self.write_job()
+        result = self.run_script("validate_job.py", "--job", str(self.job_path), "--stage", "place")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("source_path_contains_percent_escape", result.stdout)
+        output = self.work / "place.jsx"
+        result = self.run_script("build_placement_jsx.py", "--job", str(self.job_path),
+                                 "--preview-png", str(self.work / "preview.png"), "--output", str(output))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("source_path_contains_percent_escape", result.stderr)
+        self.assertFalse(output.exists())
 
     def test_technical_failure_allows_only_one_retry(self) -> None:
         broken = Image.new("RGB", (64, 64), (255, 255, 255))
@@ -158,7 +177,7 @@ class ScriptTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         code = jsx.read_text(encoding="utf-8-sig")
-        self.assertIn(str(matched).replace("\\", "\\\\"), code)
+        self.assertIn(json.dumps(str(matched), ensure_ascii=True), code)
         self.assertIn("hideOlderVersions", code)
         self.assertIn("hideOlderVersions(sourceLayer.name,job.scope_id,newLayer)", code)
         self.assertIn("versionBase(original,scopeId)", code)

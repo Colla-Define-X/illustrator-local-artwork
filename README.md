@@ -4,7 +4,7 @@
 
 它会根据 Illustrator 文档中的现有风格一次生成一张透明背景图，默认匹配原图色调，并在原 AI 文件中创建空的同级 `aicreate-*` 图层，仅放入替换对象。原图层保持可见，只隐藏被替换的旧对象和同一页面或目标范围的较早版本，因此可以随时在 Illustrator 中恢复任意版本。
 
-> 当前版本：`v0.2.0-rc.4`。这是候选发布版，建议先在可恢复的 Illustrator 文件上完成实际测试。该版本会原地保存传入的 AI 文件。
+> 当前版本：`v0.2.0-rc.5`。这是候选发布版，建议先在可恢复的 Illustrator 文件上完成实际测试。该版本会原地保存传入的 AI 文件。
 
 ## 主要能力
 
@@ -17,6 +17,8 @@
 - 原图层保持可见，只隐藏被替换对象和同一目标范围的旧生成层。
 - 默认嵌入最终素材，避免外链图片丢失。
 - 使用快速校验替代全量文档审计，减少大型 AI 文件的处理时间。
+- 区分路径、配置、工具调用和生成素材故障；可安全修复的问题不消耗第二次生图。
+- 提供 Windows/macOS 安装入口、独立运行环境、Doctor 和交付包完整性校验。
 - 最终只向用户交付更新后的 AI 文件和替换后预览图。
 
 ## 适用场景
@@ -47,28 +49,30 @@
 
 任务配置、生成图、调色中间图、临时 JSX 和诊断信息保存在项目的 `.aicreate/<job-id>/` 目录中，不作为对话交付物展示。
 
-## 安装
+## 安装（Windows / macOS）
 
-将仓库克隆到 Codex skills 目录：
+交付包解压后，在含 `SKILL.md` 的目录执行：
 
-```powershell
-git clone https://github.com/Colla-Define-X/illustrator-local-artwork.git `
-  "$env:USERPROFILE\.codex\skills\illustrator-local-artwork"
-```
-
-安装 Python 依赖：
+Windows：
 
 ```powershell
-python -m pip install -r "$env:USERPROFILE\.codex\skills\illustrator-local-artwork\requirements.txt"
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install-windows.ps1
 ```
 
-该 Skill 还需要可用的 Illustrator MCP，用于读取文档、执行 JSX、保存 AI 和导出预览。
+Mac Intel / Apple Silicon：
 
-如需使用候选发布版：
-
-```powershell
-git -C "$env:USERPROFILE\.codex\skills\illustrator-local-artwork" checkout v0.2.0-rc.4
+```bash
+bash ./install-macos.sh
 ```
+
+需要 Python 3.12+；安装器为 Skill 创建独立 `.venv` 并安装 Pillow。
+它不会安装 Codex、Illustrator 或自动修改 MCP 配置。
+自定义目录、MCP 安装及配置、Mac 权限和迁移说明见
+[双平台安装指引](references/setup.md)。实际验证范围见 [TESTING.md](TESTING.md)。
+
+所有技能脚本均使用安装输出的虚拟环境 Python 执行。
+先运行 `scripts/doctor.py` 检查 Python、Pillow 和 MCP 配置，
+再在 Codex 内验证 Illustrator 连接与生图工具。
 
 ## 使用方式
 
@@ -157,5 +161,6 @@ python path\to\skill-creator\scripts\quick_validate.py .
 - `v0.2.0-rc.2`：单图生成、用户要求优先、原图色调匹配、递增版本图层。
 - `v0.2.0-rc.3`：不再复制整个印刷层，只创建同级替换层并隐藏被替换对象。
 - `v0.2.0-rc.4`：按页面或目标范围隔离生成图层，只隐藏同范围旧版本。
+- `v0.2.0-rc.5`：加入双平台安装与路径保护，并优化技术失败修复和生图次数计算。
 
 仓库地址：<https://github.com/Colla-Define-X/illustrator-local-artwork>

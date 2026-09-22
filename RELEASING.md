@@ -14,6 +14,12 @@ Illustrator integration testing. Keep the version in `VERSION` and `SKILL.md`
 
 Version increments:
 
+For a delivery build, create the release tag only after all intended entries are versioned. Build the lightweight
+archive with `python scripts/build_delivery.py --output dist/illustrator-local-artwork.zip`.
+It contains an allowlisted skill payload and a SHA-256 manifest, excluding environments,
+personal settings and artwork. Keep TESTING.md accurate about local, CI and real-Adobe
+checks separately. Rebuild the ZIP after updating documentation or code.
+
 - PATCH: compatible fixes or instruction clarifications.
 - MINOR: compatible new workflows, scripts, or schema capabilities.
 - MAJOR: incompatible manifest, command, or workflow changes.

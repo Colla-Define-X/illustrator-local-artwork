@@ -5,6 +5,23 @@ All notable changes to this skill are documented here. Versions follow
 
 ## [Unreleased]
 
+## [0.2.0-rc.5] - 2026-09-22
+
+### Added
+
+- Add Windows and macOS installation entrypoints with isolated Python environments.
+- Add read-only runtime/MCP configuration diagnostics and portable setup instructions.
+- Add allowlisted ZIP packaging with per-file SHA-256 verification.
+
+### Changed
+
+- Preserve macOS path case; use encoded File URIs for Unicode and literal percent asset filenames.
+- Reject ambiguous percent-escape source AI paths before any document mutation.
+- Read UTF-8 BOM jobs and emit UTF-8 CLI output on both platforms.
+- Distinguish path, configuration, and tool-call corrections from image-generation attempts.
+- Permit a low-cost deterministic repair before the single allowed regeneration when visual requirements remain unchanged.
+- Keep schema v3 and existing artwork replacement/version-layer behavior.
+
 ## [0.2.0-rc.4] - 2026-09-21
 
 ### Fixed
@@ -53,7 +70,8 @@ All notable changes to this skill are documented here. Versions follow
 - Candidate validation, preview generation, approved placement, and post-placement audit scripts.
 - Job manifest schema and Codex UI metadata.
 
-[Unreleased]: https://github.com/Colla-Define-X/illustrator-local-artwork/compare/v0.2.0-rc.4...HEAD
+[Unreleased]: https://github.com/Colla-Define-X/illustrator-local-artwork/compare/v0.2.0-rc.5...HEAD
+[0.2.0-rc.5]: https://github.com/Colla-Define-X/illustrator-local-artwork/releases/tag/v0.2.0-rc.5
 [0.2.0-rc.4]: https://github.com/Colla-Define-X/illustrator-local-artwork/releases/tag/v0.2.0-rc.4
 [0.2.0-rc.3]: https://github.com/Colla-Define-X/illustrator-local-artwork/releases/tag/v0.2.0-rc.3
 [0.2.0-rc.2]: https://github.com/Colla-Define-X/illustrator-local-artwork/releases/tag/v0.2.0-rc.2

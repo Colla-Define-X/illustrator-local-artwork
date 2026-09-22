@@ -9,6 +9,8 @@ from pathlib import Path
 
 from PIL import Image
 
+from runtime_support import source_path_is_unambiguous, utf8_output
+
 
 VALID_JOB_STATES = {"draft", "candidate_ready", "selected", "placed", "verified", "failed"}
 VALID_CANDIDATE_STATES = {"generated", "selected", "rejected"}
@@ -49,11 +51,12 @@ def inside(path: Path, directory: Path) -> bool:
 
 
 def main() -> None:
+    utf8_output()
     parser = argparse.ArgumentParser()
     parser.add_argument("--job", required=True)
     parser.add_argument("--stage", required=True, choices=("candidate", "place"))
     args = parser.parse_args()
-    job = json.loads(Path(args.job).resolve().read_text(encoding="utf-8"))
+    job = json.loads(Path(args.job).resolve().read_text(encoding="utf-8-sig"))
     errors, warnings, checks = [], [], []
 
     if job.get("schema_version") != 3:
@@ -66,6 +69,8 @@ def main() -> None:
         errors.append("generation_attempt_must_be_1_or_2")
 
     source = Path(job.get("source_ai", ""))
+    if not source_path_is_unambiguous(str(source)):
+        errors.append("source_path_contains_percent_escape")
     if not source.is_absolute() or not source.is_file() or source.suffix.lower() != ".ai":
         errors.append("source_ai_must_be_existing_absolute_ai")
 

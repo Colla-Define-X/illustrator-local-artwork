@@ -5,14 +5,17 @@ import argparse
 import json
 from pathlib import Path
 
+from runtime_support import PATH_GUARD_JS, source_path_is_unambiguous, utf8_output
+
 
 def main() -> None:
+    utf8_output()
     parser = argparse.ArgumentParser()
     parser.add_argument("--job", required=True)
     parser.add_argument("--preview-png", required=True)
     parser.add_argument("--output", required=True)
     args = parser.parse_args()
-    job = json.loads(Path(args.job).resolve().read_text(encoding="utf-8"))
+    job = json.loads(Path(args.job).resolve().read_text(encoding="utf-8-sig"))
     if job.get("schema_version") != 3:
         raise SystemExit("schema_version_must_be_3")
     if job.get("status") != "selected":
@@ -22,6 +25,8 @@ def main() -> None:
         raise SystemExit("candidate_must_be_selected")
 
     source = Path(job["source_ai"]).resolve()
+    if not source_path_is_unambiguous(str(source)):
+        raise SystemExit("source_path_contains_percent_escape: rename the AI path before placement")
     asset = Path(candidate.get("effective_asset_path", "")).resolve()
     preview_png = Path(args.preview_png).resolve()
     if not source.is_file() or source.suffix.lower() != ".ai":
@@ -47,11 +52,16 @@ def main() -> None:
         "embed": bool(target.get("embed", True)),
         "candidate_id": candidate.get("id", "candidate"),
     }
+    # URI encoding prevents ExtendScript File from interpreting literal % escapes
+    # and handles Unicode/space paths consistently on both operating systems.
+    payload["source_uri"] = source.as_uri()
+    payload["asset_uri"] = asset.as_uri()
+    payload["preview_uri"] = preview_png.as_uri()
     code = f'''(function(){{
 try{{
-var job={json.dumps(payload, ensure_ascii=False)},doc=app.activeDocument;
-function norm(v){{return String(v).replace(/\\\\/g,'/').toLowerCase();}}
-if(norm(doc.fullName.fsName)!==norm(job.source_ai))throw new Error('target_document_path_mismatch');
+var job={json.dumps(payload, ensure_ascii=True)},doc=app.activeDocument;
+{PATH_GUARD_JS}
+if(!sameDocumentPath(doc.fullName.fsName,new File(job.source_uri).fsName,File.fs==='Windows'))throw new Error('target_document_path_mismatch');
 function findLayer(name){{for(var i=0;i<doc.layers.length;i++)if(doc.layers[i].name===name)return doc.layers[i];throw new Error('layer_not_found:'+name);}}
 function layerNameExists(name){{for(var i=0;i<doc.layers.length;i++)if(doc.layers[i].name===name)return true;return false;}}
 function versionBase(original,scopeId){{return 'aicreate-'+original+'-'+scopeId;}}
@@ -66,7 +76,7 @@ var sourceLayer=findLayer(job.layer);sourceLayer.locked=false;sourceLayer.visibl
 var groups=topGroups(sourceLayer),group=groups[job.group_index];if(!group)throw new Error('group_not_found:'+job.group_index);
 var rasters=[];collectRasters(group,rasters);var anchor=rasters[job.primary_raster_index];if(!anchor)throw new Error('primary_raster_not_found');
 if(job.fit==='cover'&&(!job.allow_crop||anchor.parent.typename!=='GroupItem'||!anchor.parent.clipped))throw new Error('cover_requires_existing_clipping_group');
-var file=new File(job.asset_path);if(!file.exists)throw new Error('selected_asset_missing');
+var file=new File(job.asset_uri);if(!file.exists)throw new Error('selected_asset_missing');
 var newLayer=createSiblingLayer(sourceLayer,nextLayerName(sourceLayer.name,job.scope_id));doc.activeLayer=newLayer;
 var placed=doc.placedItems.add();placed.file=file;placed.move(newLayer,ElementPlacement.PLACEATBEGINNING);
 var b=job.bounds,w=b[2]-b[0],h=b[1]-b[3],sx=w/placed.width,sy=h/placed.height,scale=job.fit==='cover'?Math.max(sx,sy):Math.min(sx,sy);
@@ -76,7 +86,7 @@ for(var r=0;r<job.raster_indices.length;r++){{var idx=job.raster_indices[r];if(i
 if(job.embed)placed.embed();
 hideOlderVersions(sourceLayer.name,job.scope_id,newLayer);sourceLayer.visible=true;newLayer.visible=true;
 if(!sourceLayer.visible||!newLayer.visible)throw new Error('layer_visibility_verification_failed');
-var preview=new File(job.preview_png),options=new ImageCaptureOptions();options.resolution=120;options.antiAliasing=true;options.transparency=false;doc.imageCapture(preview,group.geometricBounds,options);
+var preview=new File(job.preview_uri),options=new ImageCaptureOptions();options.resolution=120;options.antiAliasing=true;options.transparency=false;doc.imageCapture(preview,group.geometricBounds,options);
 if(!preview.exists||preview.length<=0)throw new Error('final_preview_export_failed');
 doc.save();
 return 'VERIFIED candidate_id='+job.candidate_id+' layer='+newLayer.name+' preview='+job.preview_png;

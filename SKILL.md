@@ -2,7 +2,7 @@
 name: illustrator-local-artwork
 description: Generate one reference-matched transparent artwork at a time, locate the exact Illustrator object and its containing layer, place the replacement on a page- or target-scoped sibling aicreate layer without copying the source layer, hide only the replaced object and same-scope older generated layers, save in place, and return only the AI and final preview. Use for local motif, ornament, object, or illustration replacement; do not use for text/date updates or full-layout generation.
 metadata:
-  version: "0.2.0-rc.4"
+  version: "0.2.0-rc.5"
 ---
 
 # Illustrator Local Artwork
@@ -22,11 +22,22 @@ If the user asks to preserve shape, motif, composition, or another element, trea
 
 ## Workflow
 
+Before first use or after moving this skill, read [references/setup.md](references/setup.md).
+Run all Python commands with this skill's `.venv/Scripts/python.exe` (Windows)
+or `.venv/bin/python` (macOS), using absolute script paths when outside the skill directory.
+Run `scripts/doctor.py` with that interpreter. A runtime-ready result does not verify
+the MCP connection or image-generation tool; confirm those in the current host separately.
+Use absolute native filesystem paths in jobs and `target_path`, not URL-encoded paths.
+The placement builder handles URI encoding internally. On macOS a path mismatch must
+be inspected, never worked around by lowercasing the path.
+Source AI paths containing literal percent escapes such as `%20` are rejected
+before placement because Illustrator can misreport their identity; see setup.md.
+
 1. Confirm the source AI, internal work directory, target layer/group, target bounds, stable target `scope_id`, and creative brief. Use a page identifier such as `p19` when the document is page-based. The source AI is also the final AI.
 2. Inspect the target once and export the original target region as the tone reference. For an ambiguous target, stop after mapping suggestions instead of guessing.
 3. Create a schema-v3 job using [references/schema.md](references/schema.md). Keep the job, prompt, generated asset, tone-matched asset, JSX, and diagnostics under `.aicreate/<job-id>/`.
 4. Run `scripts/build_generation_prompt.py`, then generate one transparent candidate. Vary form only where the user allows it. Require one isolated subject, no text or watermark, true alpha transparency, and adequate resolution.
-5. Run `scripts/validate_job.py --stage candidate`. On a technical failure, regenerate once with `generation_attempt: 2`; if that also fails, stop without modifying Illustrator. Do not regenerate automatically for aesthetic dissatisfaction.
+5. Run `scripts/validate_job.py --stage candidate`. If it fails, use the reported errors to identify the cause. Correct path, configuration, or tool-call problems and retry the affected step without consuming a generation attempt. For a defective generated asset, a low-cost, deterministic repair is optional when it preserves user requirements and the subject's visual appearance, and repair plus verification costs less than regeneration. Preserve the original, save the repaired copy in the work directory, and rerun the existing validation before continuing; do not build a dedicated repair workflow for an isolated incident. If repair is unsuitable or unsuccessful, regenerate once with `generation_attempt: 2`. If no valid candidate remains after that attempt and any suitable repair, stop without modifying Illustrator. Do not regenerate automatically for aesthetic dissatisfaction.
 6. For `match_source`, run `scripts/match_tone.py`. It preserves alpha and structure, protects bright low-saturation material, and uses the adjusted image only when similarity improves. For `user_override`, keep the user-directed candidate unchanged.
 7. Set the candidate and job to `selected`, record `effective_asset_path`, and run `validate_job.py --stage place` followed by `build_placement_jsx.py`.
 8. Open the source AI itself and call Illustrator MCP `run` with that exact absolute path as `target_path`. The JSX locates the mapped objects in their existing layer, creates the next sibling `aicreate-*` layer, places only the replacement there, hides only the mapped old objects and older generated layers, saves in place, and exports the final preview.
